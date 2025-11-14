@@ -31,28 +31,30 @@ class Program
     private const int StdOutputHandle = -11;
     private const uint EnableVirtualTerminalProcessing = 4;
 
-    [DllImport("kernel32.dll")]
-    private static extern bool GetConsoleMode(nint hConsoleHandle, out uint lpMode);
+//    [DllImport("kernel32.dll")]
+ //   private static extern bool GetConsoleMode(nint hConsoleHandle, out uint lpMode);
 
-    [DllImport("kernel32.dll")]
-    private static extern bool SetConsoleMode(nint hConsoleHandle, uint dwMode);
+   // [DllImport("kernel32.dll")]
+    //private static extern bool SetConsoleMode(nint hConsoleHandle, uint dwMode);
 
-    [DllImport("kernel32.dll", SetLastError = true)]
-    private static extern nint GetStdHandle(int nStdHandle);
+   // [DllImport("kernel32.dll", SetLastError = true)]
+    //private static extern nint GetStdHandle(int nStdHandle);
 
     private static void EnableANSI()
     {
-        nint handle = GetStdHandle(StdOutputHandle);
-        GetConsoleMode(handle, out uint mode);
-        mode |= EnableVirtualTerminalProcessing;
-        SetConsoleMode(handle, mode);
+      //  nint handle = GetStdHandle(StdOutputHandle);
+    //    GetConsoleMode(handle, out uint mode);
+        //mode |= EnableVirtualTerminalProcessing;
+      //  SetConsoleMode(handle, mode);
     }
 
-    public static void Main()
+    public static void Main(string[] args)
     {
+        bool screensaver = args.Length > 0 && args[0] == "screensaver";
         EnableANSI();
 
         Random random = new();
+        int count = 0;
         while (true)
         {
             int x = random.Next(0, BoardSize), y = random.Next(0, BoardSize);
@@ -65,34 +67,46 @@ class Program
             Board[x, y] = random.Next(0, 10) == 0 ? 4 : 2;
             if (!BoardHasValidMove())
                 break;
-            Console.Clear();
-
-            RenderBoard();
-
-            Console.WriteLine("Use WASD or arrow keys to move");
-
-            bool success = false;
-            while (!success)
+            
+            if (screensaver && count++ % 5000 == 0)
             {
-                ConsoleKeyInfo key = Console.ReadKey(true);
-                switch (key.Key)
+                Console.SetCursorPosition(0, 0);
+                RenderBoard();
+            }
+
+            if (screensaver)
+            {
+                if (MoveUp()) continue;
+                if (MoveLeft()) continue;
+                if (MoveRight()) continue;
+                MoveDown();
+            }
+            else
+            {
+                Console.WriteLine("Use WASD or arrow keys to move");
+                bool success = false;
+                while (!success)
                 {
-                    case ConsoleKey.W:
-                    case ConsoleKey.UpArrow:
-                        success = MoveUp();
-                        break;
-                    case ConsoleKey.A:
-                    case ConsoleKey.LeftArrow:
-                        success = MoveLeft();
-                        break;
-                    case ConsoleKey.S:
-                    case ConsoleKey.DownArrow:
-                        success = MoveDown();
-                        break;
-                    case ConsoleKey.D:
-                    case ConsoleKey.RightArrow:
-                        success = MoveRight();
-                        break;
+                    ConsoleKeyInfo key = Console.ReadKey(true);
+                    switch (key.Key)
+                    {
+                        case ConsoleKey.W:
+                        case ConsoleKey.UpArrow:
+                            success = MoveUp();
+                            break;
+                        case ConsoleKey.A:
+                        case ConsoleKey.LeftArrow:
+                            success = MoveLeft();
+                            break;
+                        case ConsoleKey.S:
+                        case ConsoleKey.DownArrow:
+                            success = MoveDown();
+                            break;
+                        case ConsoleKey.D:
+                        case ConsoleKey.RightArrow:
+                            success = MoveRight();
+                            break;
+                    }
                 }
             }
         }
@@ -102,7 +116,7 @@ class Program
         Console.WriteLine("Game over!");
         int score = Board.Cast<int>().Max();
         int log = (int)Math.Log2(score);
-        Console.WriteLine($"Highest tile: {Colors[log == int.MinValue ? 0 : log]} {score} {LineEnd}");
+        Console.WriteLine($"Highest tile: {GetColor(log == int.MinValue ? 0 : log)} {score} {LineEnd}");
         Console.ReadKey(true);
     }
 
@@ -112,23 +126,29 @@ class Program
         const int cellHeight = 3;
         string grid = "";
 
-        for (int x = 0; x < BoardSize; x++)
+        for (int y = 0; y < BoardSize; y++)
         {
             for (int h = 0; h < cellHeight; h++)
             {
-                for (int y = 0; y < BoardSize; y++)
+                for (int x = 0; x < BoardSize; x++)
                 {
-                    int log = (int)Math.Log2(Board[y, x]);
-                    grid += Colors[log == int.MinValue ? 0 : log];
-                    if (h != cellHeight / 2 || Board[y, x] == 0)
-                        grid += " ".PadLeft(cellWidth);
+                    int log = (int)Math.Log2(Board[x, y]);
+                    grid += GetColor(log == int.MinValue ? 0 : log);
+                    if (h != cellHeight / 2 || Board[x, y] == 0)
+                    {
+                        grid += "".PadLeft(cellWidth);
+                    }
                     else
                     {
-                        string num = Board[y, x].ToString();
+                        string num = Board[x, y].ToString();
                         int padOffset = num.Length - 1;
-                        string shit = " ".PadLeft((cellWidth / 2) - padOffset) + num;
-                        shit = shit.PadRight(cellWidth);
-                        grid += shit;
+                        string numText = "".PadLeft(Math.Max(0, (cellWidth / 2) - padOffset)) + num;
+                        numText = numText.PadRight(cellWidth);
+                        if (numText.Length > cellWidth)
+                        {
+                            numText = numText[..(int)Math.Floor(cellWidth / 2f)] + numText[(int)(numText.Length - Math.Floor(cellWidth / 2f))..];
+                        }
+                        grid += numText;
                     }
                 }
 
@@ -297,5 +317,10 @@ class Program
         }
 
         return success;
+    }
+
+    private static string GetColor(int number)
+    {
+        return Colors[Math.Min(number, Colors.Length - 1)];
     }
 }
